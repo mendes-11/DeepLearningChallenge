@@ -1,6 +1,16 @@
+from flask import Flask, request, jsonify
 import cv2
 import numpy as np
 import tensorflow as tf
+import os
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+import os
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def segment_letters(image_path):
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -36,8 +46,13 @@ def predict_letter(image_path, model_path):
     else:
         return chr(indiceMaximo - 36 + ord('a'))
 
-def process_image_and_identify_phrases(image_path, model_path, word_threshold=20):
+def process_image_and_identify_phrases(image_path, model_path, word_threshold=100):
+    temp_dir = 'temp'
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+
     rects = segment_letters(image_path)
+
     if not rects:
         return []
 
@@ -49,10 +64,10 @@ def process_image_and_identify_phrases(image_path, model_path, word_threshold=20
 
     for i, rect in enumerate(sorted_rects):
         x, y, w, h = rect
-        letter_image = img[y:y+h, x:x+w]
-        letter_image_path = "temp.jpg"
-        cv2.imwrite(letter_image_path, letter_image)
+        letter_image_path = os.path.join("temp", f"temp_{i}.jpg")
+        cv2.imwrite(letter_image_path, img[y:y+h, x:x+w])
         letter = predict_letter(letter_image_path, model_path)
+        os.remove(letter_image_path)
         letters.append(letter)
 
         if i < len(sorted_rects) - 1:
@@ -62,9 +77,27 @@ def process_image_and_identify_phrases(image_path, model_path, word_threshold=20
                 phrases.append(''.join(letters))
                 letters = []
 
-    phrases.append(''.join(letters))
+    if letters:
+        phrases.append(''.join(letters))
 
     return phrases
 
-phrases = process_image_and_identify_phrases('tests\\test.png', 'models\\GOD98_98.keras')
-print("Frases identificadas:", phrases)
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        phrases = process_image_and_identify_phrases(file_path, 'models\\m3.keras')
+        os.remove(file_path)
+        return jsonify({"phrases": phrases})
+
+if __name__ == '__main__':
+    app.run(debug=True)

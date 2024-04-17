@@ -3,57 +3,47 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import models, layers, callbacks, initializers
 
-epochs = 100 
-batch_size = 32 
+epochs = 150 
+batch_size = 64 
 patience = 10 
-learning_rate = 0.0005
-model_path = "models/12_04/teste3.keras"
+learning_rate = 0.001
+model_path = "models/Mateus/m3.keras" 
 exists = os.path.exists(model_path)
 
 model = (
     models.load_model(model_path)
     if exists
     else models.Sequential([
-        layers.Resizing(82, 82),
+        layers.Resizing(120, 90),
         layers.Rescaling(1.0/255),
-        layers.BatchNormalization(axis=1),
-        layers.Conv2D(64, (7, 7),
-            activation = 'relu',
-            kernel_initializer = initializers.RandomNormal()
-            ),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(32, (5, 5),
+        layers.Conv2D(64, (3, 3),
             activation = 'relu',
             kernel_initializer = initializers.RandomNormal()
         ),
         layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(32, (3, 3),
+        layers.Conv2D(128, (3, 3),
+            activation = 'relu',
+            kernel_initializer = initializers.RandomNormal()
+        ),
+        layers.MaxPooling2D((2, 2)),
+        layers.Conv2D(256, (3, 3),
             activation = 'relu',
             kernel_initializer = initializers.RandomNormal()
         ),
         layers.MaxPooling2D((2, 2)),
         layers.Flatten(),
-        layers.Dropout(0.6),
+        layers.Dropout(0.5),
         layers.Dense(512,
             activation = 'relu',
             kernel_initializer = initializers.RandomNormal()
         ),
-        layers.Dropout(0.6),
+        layers.Dropout(0.5),
         layers.Dense(256,
             activation = 'relu',
             kernel_initializer = initializers.RandomNormal()
         ),
-        layers.Dropout(0.5),
-        layers.Dense(128,
-            activation = 'relu',
-            kernel_initializer = initializers.RandomNormal()
-        ),
-        layers.Dense(64,
-            activation = 'relu',
-            kernel_initializer = initializers.RandomNormal()
-        ),
         layers.Dense(62,
-            activation = 'sigmoid',
+            activation = 'softmax',
             kernel_initializer = initializers.RandomNormal()
         )
         ])
@@ -62,14 +52,14 @@ model = (
 if not exists:
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     model.compile(optimizer=optimizer, loss="sparse_categorical_crossentropy", metrics=["accuracy"])
-    data_directory = "Fotos"
+    data_directory = "FotosFlood"
 
     train_data = tf.keras.preprocessing.image_dataset_from_directory(
         data_directory,
         validation_split=0.2,
         subset="training",
         seed=123,
-        image_size=(1200, 900),  
+        image_size=(120, 90),  
         batch_size=batch_size
     )
 
@@ -78,7 +68,7 @@ if not exists:
         validation_split=0.2,
         subset="validation",
         seed=123,
-        image_size=(1200, 900),
+        image_size=(120, 90),
         batch_size=batch_size
     )
 
@@ -97,5 +87,3 @@ if not exists:
             )
         ]
     )
-
-model.evaluate(validation_data)

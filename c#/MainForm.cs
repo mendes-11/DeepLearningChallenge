@@ -1,9 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-using AForge.Imaging;
-using AForge.Imaging.Filters;
-using Python.Runtime;
+using System.Net.Http;
 using System.IO;
 
 namespace c_
@@ -15,19 +13,11 @@ namespace c_
         private Bitmap drawingBitmap;
         private Graphics drawingGraphics;
         private Point lastPoint;
-        private PictureBox pictureBox;
-        private dynamic model;
+        private Button btnSaveSend;
 
         public MainForm()
         {
             InitializeComponents();
-            InitializePython();
-        }
-
-        private void InitializePython()
-        {
-            Runtime.PythonDLL = "python311.dll";
-            PythonEngine.Initialize();
         }
 
         private void InitializeComponents()
@@ -43,6 +33,15 @@ namespace c_
             };
             Controls.Add(drawingPanel);
 
+            btnSaveSend = new Button
+            {
+                Text = "Save & Send",
+                Location = new Point(10, 520),
+                Size = new Size(100, 30)
+            };
+            Controls.Add(btnSaveSend);
+            btnSaveSend.Click += SaveAndSendImage;
+
             drawingBitmap = new Bitmap(drawingPanel.Width, drawingPanel.Height);
             drawingGraphics = Graphics.FromImage(drawingBitmap);
             drawingGraphics.Clear(Color.White);
@@ -51,24 +50,6 @@ namespace c_
             drawingPanel.MouseMove += Draw;
             drawingPanel.MouseUp += StopDrawing;
             drawingPanel.Paint += PanelPaint;
-
-            var segmentButton = new Button
-            {
-                Text = "Segmentar e Identificar Frases",
-                Location = new Point(10, 520),
-                Size = new Size(200, 30)
-            };
-            segmentButton.Click += SegmentLetters;
-            Controls.Add(segmentButton);
-
-            pictureBox = new PictureBox
-            {
-                Location = new Point(220, 520),
-                Size = new Size(550, 50),
-                BorderStyle = BorderStyle.FixedSingle,
-                AutoSize = true
-            };
-            Controls.Add(pictureBox);
         }
 
         private void PanelPaint(object sender, PaintEventArgs e)
@@ -86,7 +67,7 @@ namespace c_
         {
             if (isDrawing)
             {
-                using (Pen pen = new Pen(Color.Black, 4))
+                using (Pen pen = new Pen(Color.Black, 10))
                 {
                     drawingGraphics.DrawLine(pen, lastPoint, e.Location);
                 }
@@ -100,68 +81,25 @@ namespace c_
             isDrawing = false;
         }
 
-        private void SegmentLetters(object sender, EventArgs e)
+        private async void SaveAndSendImage(object sender, EventArgs e)
         {
-            Bitmap grayImage = Grayscale.CommonAlgorithms.BT709.Apply(drawingBitmap);
+            string imagePath = "drawing.png";
+            drawingBitmap.Save(imagePath);
 
-            Threshold thresholdFilter = new Threshold(127);
-            Bitmap binaryImage = thresholdFilter.Apply(grayImage);
-
-            Invert invertFilter = new Invert();
-            invertFilter.ApplyInPlace(binaryImage);
-
-            ConnectedComponentsLabeling labeling = new ConnectedComponentsLabeling();
-            Bitmap labeledImage = labeling.Apply(binaryImage);
-
-            BlobCounter blobCounter = new BlobCounter
+            using (var client = new HttpClient())
             {
-                ObjectsOrder = ObjectsOrder.XY
-            };
-            blobCounter.ProcessImage(labeledImage);
-            Blob[] blobs = blobCounter.GetObjectsInformation();
-
-            string baseFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "DeepLearningChallenge", "python");
-            for (int index = 0; index < blobs.Length; index++)
-            {
-                Blob blob = blobs[index];
-                Rectangle rect = blob.Rectangle;
-                Bitmap croppedImage = new Bitmap(rect.Width, rect.Height);
-                using (Graphics croppedGraphics = Graphics.FromImage(croppedImage))
+                using (var content = new MultipartFormDataContent())
                 {
-                    croppedGraphics.DrawImage(drawingBitmap, 0, 0, rect, GraphicsUnit.Pixel);
+                    var fileContent = new ByteArrayContent(File.ReadAllBytes(imagePath));
+                    fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+                    content.Add(fileContent, "file", "drawing.png");
+
+                    var response = await client.PostAsync("http://localhost:5000/upload", content);
+                    var responseString = await response.Content.ReadAsStringAsync();
+
+                    MessageBox.Show(responseString, "Response from Server");
                 }
-
-                string filename = $"segmented_letter_{index}.jpg";
-                string fullPath = Path.Combine(baseFolderPath, filename);
-                croppedImage.Save(fullPath);
-
-                string letter = PreverLetra(fullPath);
-                MessageBox.Show($"Letter identified: {letter}");
-            }
-
-            drawingPanel.Invalidate();
-        }
-
-        private string PreverLetra(string imageName)
-        {
-            using (Py.GIL())
-            {
-                dynamic sys = Py.Import("sys");
-                string scriptPath = @"C:\Users\MateusLeite\Desktop\DeepLearningChallenge\python";
-                string modelPath = @"C:\Users\MateusLeite\Desktop\DeepLearningChallenge\models\GOD98_98.keras";
-                sys.path.append(scriptPath);
-                dynamic pythonScript = Py.Import("predict_letter");
-                PyObject imageNamePy = new PyString(imageName);
-                PyObject modelPathPy = new PyString(modelPath);
-                if (!File.Exists(modelPath))
-                {
-                    MessageBox.Show($"Model file not found: {modelPath}");
-                    return null;
-                }
-                PyObject result = pythonScript.InvokeMethod("predict_letter", imageNamePy, modelPathPy);
-                return result.ToString();
             }
         }
-
     }
 }

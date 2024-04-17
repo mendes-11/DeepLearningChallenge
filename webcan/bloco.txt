@@ -1,0 +1,54 @@
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+using AForge.Video;
+using AForge.Video.DirectShow;
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+
+        // Inicializa o formulário
+        var form = new Form();
+        form.Text = "Visualização da Webcam";
+        form.StartPosition = FormStartPosition.CenterScreen;
+        form.FormClosing += (sender, eventArgs) => { Application.Exit(); };
+
+        // Inicializa o controle PictureBox para exibir a imagem da webcam
+        var pictureBox = new PictureBox();
+        pictureBox.Dock = DockStyle.Fill;
+        pictureBox.SizeMode = PictureBoxSizeMode.Zoom;
+        form.Controls.Add(pictureBox);
+
+        FilterInfoCollection videoDevices = new FilterInfoCollection(FilterCategory.VideoInputDevice);
+
+        if (videoDevices.Count == 0)
+        {
+            Console.WriteLine("Nenhuma câmera encontrada.");
+            return;
+        }
+
+        FilterInfo videoDevice = videoDevices[0];
+        VideoCaptureDevice videoSource = new VideoCaptureDevice(videoDevice.MonikerString);
+
+        videoSource.NewFrame += (sender, eventArgs) =>
+        {
+            // Exibe o novo frame na PictureBox
+            Bitmap frame = (Bitmap)eventArgs.Frame.Clone();
+            pictureBox.Image = frame;
+        };
+
+        videoSource.Start();
+
+        // Exibe o formulário
+        Application.Run(form);
+
+        // Certifique-se de parar a captura de vídeo antes de liberar recursos
+        videoSource.SignalToStop();
+        videoSource.WaitForStop();
+    }
+}
+

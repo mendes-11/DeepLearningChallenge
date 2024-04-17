@@ -95,3 +95,5 @@ C:\Users\disrct\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\r
 C:\Users\disrct\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\c#.pdb
 C:\Users\disrct\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\c#.genruntimeconfig.cache
 C:\Users\disrct\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\ref\c#.dll
+C:\Users\disrct\Desktop\Deep\DeepLearningChallenge\c#\bin\Debug\net7.0-windows\Newtonsoft.Json.dll
+C:\Users\disrct\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\c#.csproj.CopyComplete

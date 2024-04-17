@@ -1,8 +1,4 @@
-using System;
-using System.Drawing;
-using System.Windows.Forms;
-using System.Net.Http;
-using System.IO;
+using Newtonsoft.Json;
 
 namespace c_
 {
@@ -91,13 +87,18 @@ namespace c_
                 using (var content = new MultipartFormDataContent())
                 {
                     var fileContent = new ByteArrayContent(File.ReadAllBytes(imagePath));
-                    fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+                    fileContent.Headers.ContentType =
+                        new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
                     content.Add(fileContent, "file", "drawing.png");
 
                     var response = await client.PostAsync("http://localhost:5000/upload", content);
                     var responseString = await response.Content.ReadAsStringAsync();
+                    var jsonResponse = JsonConvert.DeserializeObject<dynamic>(responseString);
+                    var phrasesList = jsonResponse.phrases.ToObject<List<string>>();
 
-                    MessageBox.Show(responseString, "Response from Server");
+                    var phrases = string.Join(" ", phrasesList);
+
+                    MessageBox.Show($"Sua Frase: {phrases}", "Resposta");
                 }
             }
         }

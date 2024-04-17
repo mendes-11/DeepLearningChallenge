@@ -36,15 +36,18 @@ def predict_letter(image_path, model_path):
     else:
         return chr(indiceMaximo - 36 + ord('a'))
 
-def process_image_and_identify_letters(image_path, model_path):
+def process_image_and_identify_phrases(image_path, model_path, word_threshold=20):
     rects = segment_letters(image_path)
     if not rects:
         return []
 
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     letters = []
+    phrases = []
 
-    for rect in rects:
+    sorted_rects = sorted(rects, key=lambda x: x[0])
+
+    for i, rect in enumerate(sorted_rects):
         x, y, w, h = rect
         letter_image = img[y:y+h, x:x+w]
         letter_image_path = "temp.jpg"
@@ -52,7 +55,16 @@ def process_image_and_identify_letters(image_path, model_path):
         letter = predict_letter(letter_image_path, model_path)
         letters.append(letter)
 
-    return letters
+        if i < len(sorted_rects) - 1:
+            next_x = sorted_rects[i+1][0]
+            distance = next_x - (x + w)
+            if distance > word_threshold:
+                phrases.append(''.join(letters))
+                letters = []
 
-letters = process_image_and_identify_letters('tests\\10.png', 'models\\GOD98_98.keras')
-print("Letras identificadas:", letters)
+    phrases.append(''.join(letters))
+
+    return phrases
+
+phrases = process_image_and_identify_phrases('tests\\test.png', 'models\\GOD98_98.keras')
+print("Frases identificadas:", phrases)

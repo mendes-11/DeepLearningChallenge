@@ -1,27 +1,25 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\disrct\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj": {}
+    "C:\\Users\\MateusLeite\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj": {}
   },
   "projects": {
-    "C:\\Users\\disrct\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj": {
+    "C:\\Users\\MateusLeite\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\disrct\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj",
+        "projectUniqueName": "C:\\Users\\MateusLeite\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj",
         "projectName": "c#",
-        "projectPath": "C:\\Users\\disrct\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj",
-        "packagesPath": "C:\\Users\\disrct\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\disrct\\Desktop\\DeepLearningChallenge\\c#\\obj\\",
+        "projectPath": "C:\\Users\\MateusLeite\\Desktop\\DeepLearningChallenge\\c#\\c#.csproj",
+        "packagesPath": "C:\\Users\\MateusLeite\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\MateusLeite\\Desktop\\DeepLearningChallenge\\c#\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\disrct\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "C:\\Users\\MateusLeite\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net7.0-windows"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -80,7 +78,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.306\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.203\\RuntimeIdentifierGraph.json"
         }
       }
     }

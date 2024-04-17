@@ -4,8 +4,7 @@ using System.Windows.Forms;
 using AForge.Imaging;
 using AForge.Imaging.Filters;
 using Python.Runtime;
-using Keras.Models;
-using Keras.PreProcessing.Image;
+using System.IO;
 
 namespace c_
 {
@@ -45,12 +44,8 @@ namespace c_
             Controls.Add(drawingPanel);
 
             drawingBitmap = new Bitmap(drawingPanel.Width, drawingPanel.Height);
-            using (Graphics g = Graphics.FromImage(drawingBitmap))
-            {
-                g.Clear(Color.White);
-            }
-
             drawingGraphics = Graphics.FromImage(drawingBitmap);
+            drawingGraphics.Clear(Color.White);
 
             drawingPanel.MouseDown += StartDrawing;
             drawingPanel.MouseMove += Draw;
@@ -59,18 +54,19 @@ namespace c_
 
             var segmentButton = new Button
             {
-                Text = "Segmentar Letras",
+                Text = "Segmentar e Identificar Frases",
                 Location = new Point(10, 520),
-                Size = new Size(150, 30)
+                Size = new Size(200, 30)
             };
             segmentButton.Click += SegmentLetters;
             Controls.Add(segmentButton);
 
             pictureBox = new PictureBox
             {
-                Location = new Point(10, 10),
-                Size = new Size(760, 500),
-                BorderStyle = BorderStyle.Fixed3D
+                Location = new Point(220, 520),
+                Size = new Size(550, 50),
+                BorderStyle = BorderStyle.FixedSingle,
+                AutoSize = true
             };
             Controls.Add(pictureBox);
         }
@@ -117,44 +113,55 @@ namespace c_
             ConnectedComponentsLabeling labeling = new ConnectedComponentsLabeling();
             Bitmap labeledImage = labeling.Apply(binaryImage);
 
-            BlobCounter blobCounter = new BlobCounter();
+            BlobCounter blobCounter = new BlobCounter
+            {
+                ObjectsOrder = ObjectsOrder.XY
+            };
             blobCounter.ProcessImage(labeledImage);
             Blob[] blobs = blobCounter.GetObjectsInformation();
 
-            int index = 0;
-            foreach (Blob blob in blobs)
+            string baseFolderPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "DeepLearningChallenge", "python");
+            for (int index = 0; index < blobs.Length; index++)
             {
+                Blob blob = blobs[index];
                 Rectangle rect = blob.Rectangle;
                 Bitmap croppedImage = new Bitmap(rect.Width, rect.Height);
-                Graphics croppedGraphics = Graphics.FromImage(croppedImage);
-                croppedGraphics.DrawImage(drawingBitmap, 0, 0, rect, GraphicsUnit.Pixel);
-                croppedGraphics.Dispose();
+                using (Graphics croppedGraphics = Graphics.FromImage(croppedImage))
+                {
+                    croppedGraphics.DrawImage(drawingBitmap, 0, 0, rect, GraphicsUnit.Pixel);
+                }
 
                 string filename = $"segmented_letter_{index}.jpg";
-                croppedImage.Save(filename);
-                PreverLetra(filename);
+                string fullPath = Path.Combine(baseFolderPath, filename);
+                croppedImage.Save(fullPath);
 
-                index++;
+                string letter = PreverLetra(fullPath);
+                MessageBox.Show($"Letter identified: {letter}");
             }
+
             drawingPanel.Invalidate();
         }
 
-        private void PreverLetra(string imageName)
+        private string PreverLetra(string imageName)
         {
-            using (Py.GIL()) 
+            using (Py.GIL())
             {
                 dynamic sys = Py.Import("sys");
-                sys.path.append(@"C:\Users\disrct\Desktop\DeepLearningChallenge\python");
+                string scriptPath = @"C:\Users\MateusLeite\Desktop\DeepLearningChallenge\python";
+                string modelPath = @"C:\Users\MateusLeite\Desktop\DeepLearningChallenge\models\GOD98_98.keras";
+                sys.path.append(scriptPath);
                 dynamic pythonScript = Py.Import("predict_letter");
                 PyObject imageNamePy = new PyString(imageName);
-                PyObject modelPathPy = new PyString("../models/GOD98_98.keras");
-                PyObject result = pythonScript.InvokeMethod(
-                    "predict_letter",
-                    imageNamePy,
-                    modelPathPy
-                );
-                MessageBox.Show($"Resultado: {result.ToString()}");
+                PyObject modelPathPy = new PyString(modelPath);
+                if (!File.Exists(modelPath))
+                {
+                    MessageBox.Show($"Model file not found: {modelPath}");
+                    return null;
+                }
+                PyObject result = pythonScript.InvokeMethod("predict_letter", imageNamePy, modelPathPy);
+                return result.ToString();
             }
         }
+
     }
 }

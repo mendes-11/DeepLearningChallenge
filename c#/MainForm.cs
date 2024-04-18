@@ -1,15 +1,17 @@
+using System.Drawing.Imaging;
+using System.Net.Http.Headers;
 using Newtonsoft.Json;
 
 namespace c_
 {
     public class MainForm : Form
     {
-        private Panel drawingPanel;
+        private PictureBox drawingPictureBox;
+        private List<List<Point>> allDrawingPoints = new List<List<Point>>();
+        private List<Point> currentDrawingPoints = new List<Point>();
         private bool isDrawing = false;
-        private Bitmap drawingBitmap;
-        private Graphics drawingGraphics;
-        private Point lastPoint;
-        private Button btnSaveSend;
+        private Label lblRecognizedLetter;
+        private HttpClient client = new HttpClient();
 
         public MainForm()
         {
@@ -21,84 +23,130 @@ namespace c_
             Width = 800;
             Height = 600;
 
-            drawingPanel = new Panel
+            drawingPictureBox = new PictureBox
             {
                 Location = new Point(10, 10),
                 Size = new Size(760, 500),
+                BackColor = Color.White,
+                Cursor = Cursors.Cross,
                 BorderStyle = BorderStyle.Fixed3D
             };
-            Controls.Add(drawingPanel);
+            drawingPictureBox.MouseDown += DrawingPictureBox_MouseDown;
+            drawingPictureBox.MouseMove += DrawingPictureBox_MouseMove;
+            drawingPictureBox.MouseUp += DrawingPictureBox_MouseUp;
+            drawingPictureBox.Paint += DrawingPictureBox_Paint;
+            Controls.Add(drawingPictureBox);
 
-            btnSaveSend = new Button
+            lblRecognizedLetter = new Label
             {
-                Text = "Save & Send",
-                Location = new Point(10, 520),
-                Size = new Size(100, 30)
+                Location = new Point(250, 520),
+                Size = new Size(300, 30),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font(FontFamily.GenericSansSerif, 12),
+                BorderStyle = BorderStyle.FixedSingle
             };
-            Controls.Add(btnSaveSend);
-            btnSaveSend.Click += SaveAndSendImage;
-
-            drawingBitmap = new Bitmap(drawingPanel.Width, drawingPanel.Height);
-            drawingGraphics = Graphics.FromImage(drawingBitmap);
-            drawingGraphics.Clear(Color.White);
-
-            drawingPanel.MouseDown += StartDrawing;
-            drawingPanel.MouseMove += Draw;
-            drawingPanel.MouseUp += StopDrawing;
-            drawingPanel.Paint += PanelPaint;
+            Controls.Add(lblRecognizedLetter);
         }
 
-        private void PanelPaint(object sender, PaintEventArgs e)
-        {
-            e.Graphics.DrawImage(drawingBitmap, Point.Empty);
-        }
-
-        private void StartDrawing(object sender, MouseEventArgs e)
+        private void DrawingPictureBox_MouseDown(object sender, MouseEventArgs e)
         {
             isDrawing = true;
-            lastPoint = e.Location;
+            currentDrawingPoints = new List<Point>();
+            currentDrawingPoints.Add(e.Location);
         }
 
-        private void Draw(object sender, MouseEventArgs e)
+        private void DrawingPictureBox_MouseMove(object sender, MouseEventArgs e)
         {
             if (isDrawing)
             {
-                using (Pen pen = new Pen(Color.Black, 10))
-                {
-                    drawingGraphics.DrawLine(pen, lastPoint, e.Location);
-                }
-                drawingPanel.Invalidate();
-                lastPoint = e.Location;
+                currentDrawingPoints.Add(e.Location);
+                drawingPictureBox.Invalidate();
             }
         }
 
-        private void StopDrawing(object sender, MouseEventArgs e)
+        private async void DrawingPictureBox_MouseUp(object sender, MouseEventArgs e)
         {
             isDrawing = false;
+            allDrawingPoints.Add(new List<Point>(currentDrawingPoints));
+            drawingPictureBox.Invalidate();
+
+            if (currentDrawingPoints.Count > 1)
+            {
+                using (Bitmap bmp = new Bitmap(drawingPictureBox.Width, drawingPictureBox.Height))
+                {
+                    drawingPictureBox.DrawToBitmap(bmp, drawingPictureBox.ClientRectangle);
+                    using (var stream = new MemoryStream())
+                    {
+                        bmp.Save(stream, ImageFormat.Jpeg);
+                        var imageData = stream.ToArray();
+
+                        await Task.Run(async () =>
+                        {
+                            try
+                            {
+                                using (var fileContent = new ByteArrayContent(imageData))
+                                {
+                                    fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+                                    using (var content = new MultipartFormDataContent())
+                                    {
+                                        content.Add(fileContent, "file", "drawing.jpg");
+
+                                        var response = await client.PostAsync("http://localhost:5000/upload", content);
+                                        var responseString = await response.Content.ReadAsStringAsync();
+                                        var jsonResponse = JsonConvert.DeserializeObject<dynamic>(responseString);
+                                        var phrasesList = jsonResponse?.phrases?.ToObject<List<string>>() ?? new List<string>();
+                                        var phrases = string.Join(" ", phrasesList);
+
+                                        lblRecognizedLetter.Invoke((MethodInvoker)delegate
+                                        {
+                                            if (phrases.Length > 1)
+                                            {
+                                                lblRecognizedLetter.Text = $"Letra Reconhecida: {phrases.Substring(1)}";
+                                            }
+                                            else
+                                            {
+                                                lblRecognizedLetter.Text = "Nenhuma letra reconhecida.";
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                lblRecognizedLetter.Invoke((MethodInvoker)delegate
+                                {
+                                    lblRecognizedLetter.Text = $"Erro ao processar: {ex.Message}";
+                                });
+                            }
+                        });
+                    }
+                }
+            }
         }
 
-        private async void SaveAndSendImage(object sender, EventArgs e)
+        private void DrawingPictureBox_Paint(object sender, PaintEventArgs e)
         {
-            string imagePath = "drawing.png";
-            drawingBitmap.Save(imagePath);
-
-            using (var client = new HttpClient())
+            using (var pen = new Pen(Color.Black, 6))
             {
-                using (var content = new MultipartFormDataContent())
+                pen.StartCap = pen.EndCap = System.Drawing.Drawing2D.LineCap.Round;
+
+                foreach (var points in allDrawingPoints)
                 {
-                    var fileContent = new ByteArrayContent(File.ReadAllBytes(imagePath));
-                    fileContent.Headers.ContentType =
-                        new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
-                    content.Add(fileContent, "file", "drawing.png");
+                    if (points.Count > 1)
+                    {
+                        for (int i = 1; i < points.Count; i++)
+                        {
+                            e.Graphics.DrawLine(pen, points[i - 1], points[i]);
+                        }
+                    }
+                }
 
-                    var response = await client.PostAsync("http://localhost:5000/upload", content);
-                    var responseString = await response.Content.ReadAsStringAsync();
-                    var jsonResponse = JsonConvert.DeserializeObject<dynamic>(responseString);
-                    var phrasesList = jsonResponse.phrases.ToObject<List<string>>();
-
-                    var phrases = string.Join(" ", phrasesList);
-
-                    MessageBox.Show($"Sua Frase: {phrases}", "Resposta");
+                if (isDrawing && currentDrawingPoints.Count > 1)
+                {
+                    for (int i = 1; i < currentDrawingPoints.Count; i++)
+                    {
+                        e.Graphics.DrawLine(pen, currentDrawingPoints[i - 1], currentDrawingPoints[i]);
+                    }
                 }
             }
         }

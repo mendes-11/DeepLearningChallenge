@@ -4,17 +4,19 @@ import numpy as np
 import tensorflow as tf
 import os
 from werkzeug.utils import secure_filename
+import threading
 
 app = Flask(__name__)
-import os
+
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-def segment_letters(image_path):
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    _, img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY_INV)
+model = tf.keras.models.load_model('models/m3.keras')
+
+def segment_letters(image):
+    _, img = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY_INV)
     h, w = img.shape[:2]
     mask = np.zeros((h+2, w+2), np.uint8)
     rects = []
@@ -32,10 +34,10 @@ def segment_letters(image_path):
     rects = sorted(rects, key=lambda x: x[0])
     return rects
 
-def predict_letter(image_path, model_path):
-    model = tf.keras.models.load_model(model_path)
-    image = tf.keras.utils.load_img(image_path, target_size=(28, 28), color_mode='rgb')
-    image = tf.keras.utils.img_to_array(image)
+def predict_letter(image):
+    image = cv2.resize(image, (28, 28))
+    image = np.expand_dims(image, axis=-1)
+    image = np.repeat(image, 3, axis=-1)
     image = np.expand_dims(image, axis=0)
     result = model.predict(image)
     indiceMaximo = np.argmax(result)
@@ -46,17 +48,12 @@ def predict_letter(image_path, model_path):
     else:
         return chr(indiceMaximo - 36 + ord('a'))
 
-def process_image_and_identify_phrases(image_path, model_path, word_threshold=100):
-    temp_dir = 'temp'
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-
-    rects = segment_letters(image_path)
+def process_image_and_identify_phrases(image, word_threshold=100):
+    rects = segment_letters(image)
 
     if not rects:
         return []
 
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     letters = []
     phrases = []
 
@@ -64,10 +61,7 @@ def process_image_and_identify_phrases(image_path, model_path, word_threshold=10
 
     for i, rect in enumerate(sorted_rects):
         x, y, w, h = rect
-        letter_image_path = os.path.join("temp", f"temp_{i}.jpg")
-        cv2.imwrite(letter_image_path, img[y:y+h, x:x+w])
-        letter = predict_letter(letter_image_path, model_path)
-        os.remove(letter_image_path)
+        letter = predict_letter(image[y:y+h, x:x+w])
         letters.append(letter)
 
         if i < len(sorted_rects) - 1:
@@ -79,8 +73,12 @@ def process_image_and_identify_phrases(image_path, model_path, word_threshold=10
 
     if letters:
         phrases.append(''.join(letters))
-
+        
     return phrases
+
+def process_image(file_path):
+    image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+    return process_image_and_identify_phrases(image)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -95,9 +93,15 @@ def upload_file():
         filename = secure_filename(file.filename)
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
-        phrases = process_image_and_identify_phrases(file_path, 'models\\m3.keras')
-        os.remove(file_path)
-        return jsonify({"phrases": phrases})
+
+        def async_process():
+            phrases = process_image(file_path)
+            os.remove(file_path)
+            return phrases
+
+        phrases = async_process()
+
+        return jsonify({"phrases": phrases, "message": "File uploaded successfully. Processing..."})
 
 if __name__ == '__main__':
     app.run(debug=True)

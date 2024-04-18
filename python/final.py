@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import cv2
 import numpy as np
 import tensorflow as tf
@@ -102,6 +102,10 @@ def upload_file():
         phrases = async_process()
 
         return jsonify({"phrases": phrases, "message": "File uploaded successfully. Processing..."})
+
+@app.route('/image/<filename>')
+def get_image(filename):
+    return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
 if __name__ == '__main__':
     app.run(debug=True)

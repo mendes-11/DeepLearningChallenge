@@ -1,10 +1,21 @@
 import cv2
 import numpy as np
 import tensorflow as tf
+import tempfile
+import os
 
 def segment_letters(image_path):
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+    
+    # Binarização da imagem
     _, img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY_INV)
+    
+    # Aplicar dilatação e erosão
+    kernel = np.ones((20,20),np.uint8)
+    img = cv2.dilate(img, kernel, iterations=1)
+    img = cv2.erode(img, kernel, iterations=1)
+    
+    # Aplicar flood fill para segmentar as letras
     h, w = img.shape[:2]
     mask = np.zeros((h+2, w+2), np.uint8)
     rects = []
@@ -20,6 +31,22 @@ def segment_letters(image_path):
                                  min(rect[3] + 2 * margin, h - rect[1]))
                 rects.append(expanded_rect)
     rects = sorted(rects, key=lambda x: x[0])
+
+    # Desenhar retângulos na imagem original
+    img_with_rects = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)  # Converter para imagem colorida
+    for rect in rects:
+        x, y, w, h = rect
+        # Adicionar uma borda vermelha em volta do retângulo
+        cv2.rectangle(img_with_rects, (x, y), (x + w, y + h), (0, 0, 255), 2)
+
+    # Salvar imagem com retângulos em um arquivo temporário
+    temp_dir = tempfile.mkdtemp()
+    temp_image_path = os.path.join(temp_dir, 'image_with_rects.png')
+    cv2.imwrite(temp_image_path, img_with_rects)
+
+    # Exibir a imagem com o visualizador padrão do sistema operacional
+    os.system(f'start {temp_image_path}')
+
     return rects
 
 def predict_letter(image_path, model_path):
@@ -72,5 +99,5 @@ def process_image_and_identify_phrases(image_path, model_path, word_threshold=20
 
     return phrases
 
-phrases = process_image_and_identify_phrases('tests\\mateus.png', 'models\\m3.keras')
+phrases = process_image_and_identify_phrases('tests\\am.png', 'models\\m3.keras')
 print("Frases identificadas:", phrases)

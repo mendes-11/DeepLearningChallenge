@@ -114,3 +114,6 @@ C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-wind
 C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\c#.pdb
 C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\c#.genruntimeconfig.cache
 C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\obj\Debug\net7.0-windows\ref\c#.dll
+C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\bin\Debug\net7.0-windows\AForge.dll
+C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\bin\Debug\net7.0-windows\AForge.Video.dll
+C:\Users\MateusLeite\Desktop\Deep\DeepLearningChallenge\c#\bin\Debug\net7.0-windows\AForge.Video.DirectShow.dll
